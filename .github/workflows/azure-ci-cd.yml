@@ -40,7 +40,7 @@ jobs:
           ./mvnw -B -ntp verify sonar:sonar \
             -Dsonar.host.url="${SONAR_HOST_URL}" \
             -Dsonar.token="${SONAR_TOKEN}" \
-            -Dsonar.projectKey="${{ github.repository }}-petclinic" \
+            -Dsonar.projectKey="MTFerdi-LAB-Deploy-a-Standalone-Java-App-on-Azure" \
             -Dsonar.projectName="${{ github.repository }}: Spring PetClinic"
 
       - name: Archive JAR artifact
