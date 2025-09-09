@@ -52,9 +52,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: [ build ]
-    permissions:
-      contents: read
-      actions: read
     steps:
       - name: Checkout (needed for artifact path conventions)
         uses: actions/checkout@v4
@@ -65,24 +62,24 @@ jobs:
           name: spring-petclinic-jar
           path: target
 
-      - name: Start SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
-
-      - name: Add host to known_hosts (optional)
+      # Write SSH key from base64 and prep known_hosts
+      - name: Write SSH key and prepare SSH
         run: |
+          umask 077
+          echo "${{ secrets.AZURE_SSH_PRIVATE_KEY_B64 }}" | base64 -d > ~/.ssh/azure_key
           ssh-keyscan -H "${{ secrets.AZURE_APP_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Copy JAR to VM (home)
         run: |
           JAR="$(ls target/*.jar | head -n1)"
           echo "Uploading $JAR"
-          scp -o StrictHostKeyChecking=no "$JAR" "${{ secrets.AZURE_SSH_USER }}@${{ secrets.AZURE_APP_HOST }}:/home/${{ secrets.AZURE_SSH_USER }}/spring-petclinic.jar"
+          scp -i ~/.ssh/azure_key -o StrictHostKeyChecking=no "$JAR" \
+            "${{ secrets.AZURE_SSH_USER }}@${{ secrets.AZURE_APP_HOST }}:/home/${{ secrets.AZURE_SSH_USER }}/spring-petclinic.jar"
 
       - name: Move JAR into service dir + restart service
         run: |
-          ssh -o StrictHostKeyChecking=no "${{ secrets.AZURE_SSH_USER }}@${{ secrets.AZURE_APP_HOST }}" \
+          ssh -i ~/.ssh/azure_key -o StrictHostKeyChecking=no \
+            "${{ secrets.AZURE_SSH_USER }}@${{ secrets.AZURE_APP_HOST }}" \
             "sudo mv /home/${{ secrets.AZURE_SSH_USER }}/spring-petclinic.jar /opt/petclinic/spring-petclinic.jar && \
              sudo chown petclinic:petclinic /opt/petclinic/spring-petclinic.jar && \
              sudo systemctl restart petclinic && \
